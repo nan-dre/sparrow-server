@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <Wifi.h>
 #include <Wire.h>
+#include <SD.h>
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
@@ -25,6 +26,37 @@ unsigned long currentTime = millis();
 unsigned long previousTime = 0;
 // Define timeout time in milliseconds (example: 2000ms = 2s)
 const long timeoutTime = 2000;
+float hum_reference = 40;
+
+float calculate_iaq(float gas, float humidity)
+{
+	float hum_score;
+	float gas_score;
+	if (humidity >= 38 && humidity <= 42)
+		hum_score = 0.25 * 100; // Humidity +/-5% around optimum
+	else {						// sub-optimal
+		if (humidity < 38)
+			hum_score = 0.25 / hum_reference * humidity * 100;
+		else {
+			hum_score = ((-0.25 / (100 - hum_reference) * humidity) + 0.416666) * 100;
+		}
+	}
+
+	// Calculate gas contribution to IAQ index
+	float gas_lower_limit = 5000;  // Bad air quality limit
+	float gas_upper_limit = 50000; // Good air quality limit
+	if (gas > gas_upper_limit)
+		gas = gas_upper_limit;
+	if (gas < gas_lower_limit)
+		gas = gas_lower_limit;
+	gas_score = (0.75 / (gas_upper_limit - gas_lower_limit) * gas -
+				 (gas_lower_limit * (0.75 / (gas_upper_limit - gas_lower_limit)))) *
+				100;
+
+	// Combine results for the final IAQ index value (0-100% where 100% is good quality air)
+	float air_quality_score = hum_score + gas_score;
+	return air_quality_score;
+}
 
 void printError(byte error)
 {
@@ -73,6 +105,35 @@ void setup()
 		Serial.println("Could not find a valid LTR308 sensor, check wiring!");
 		while (1)
 			;
+	}
+	if (!SD.begin(4)) {
+		Serial.println("Could not find a valid SD, check wiring!");
+		while (1)
+			;
+	}
+	File file = SD.open("/hello.txt", FILE_WRITE);
+
+	if (file) {
+		Serial.print("Writing to hello.txt...");
+		file.println("hello.txt");
+		// close the file:
+		file.close();
+		Serial.println("done.");
+	} else {
+		// if the file didn't open, print an error:
+		Serial.println("error opening hello.txt");
+	}
+
+	// Now read from it
+	Serial.println("Read from the file:");
+	file = SD.open("/hello.txt", FILE_READ);
+	if (file) {
+		while (file.available()) {
+			Serial.write(file.read());
+		}
+		file.close();
+	} else {
+		Serial.println("error opening hello.txt");
 	}
 
 	// Set up oversampling and filter initialization
@@ -259,10 +320,11 @@ void loop()
 
 						if (header.indexOf("GET /bme") >= 0) {
 							bme.performReading();
+							float iaq = calculate_iaq(bme.gas_resistance, bme.humidity);
 							client.printf(
-								"{\"temperature\":%f,\"pressure\":%f,\"humidity\":%f,\"gas\":%f,\"altitude\":%f}",
+								"{\"temperature\":%f,\"pressure\":%f,\"humidity\":%f,\"gas\":%f,\"altitude\":%f,\"iaq\":%f}",
 								bme.temperature, bme.pressure / 100.0, bme.humidity, bme.gas_resistance / 1000.0,
-								bme.readAltitude(SEALEVELPRESSURE_HPA));
+								bme.readAltitude(SEALEVELPRESSURE_HPA), iaq);
 						} else if (header.indexOf("GET /ltr") >= 0) {
 							unsigned long int rawData;
 							double lux;
