@@ -6,6 +6,7 @@
 #include <Wifi.h>
 #include <Wire.h>
 #include <SD.h>
+#include <Adafruit_NeoPixel.h>
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
@@ -13,6 +14,7 @@ Adafruit_BME680 bme;
 LTR308 light;
 WiFiServer server(80);
 String header;
+Adafruit_NeoPixel pixel(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
 
 unsigned char gain = 0;			   // Gain setting, values = 0-4
 unsigned char integrationTime = 0; // Integration ("shutter") time, values 0 - 4
@@ -92,6 +94,10 @@ void setup()
 {
 	Serial.begin(9600);
 	delay(1000);
+	pixel.begin();
+	pixel.setBrightness(3);
+	pixel.fill(0xFF00FF);
+	pixel.show();
 	while (!Serial)
 		;
 	Serial.println(F("Sparrow test"));
