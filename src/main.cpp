@@ -1,12 +1,13 @@
 #include "Adafruit_BME680.h"
+#include "BMI085.h"
 #include "secrets.h"
+#include <Adafruit_NeoPixel.h>
 #include <Adafruit_Sensor.h>
 #include <LTR308.h>
+#include <SD.h>
 #include <SPI.h>
 #include <Wifi.h>
 #include <Wire.h>
-#include <SD.h>
-#include <Adafruit_NeoPixel.h>
 
 #define SEALEVELPRESSURE_HPA (1013.25)
 
@@ -15,6 +16,8 @@ LTR308 light;
 WiFiServer server(80);
 String header;
 Adafruit_NeoPixel pixel(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+BMI085Gyro gyro(Wire, 0x68);
+BMI085Accel accel(Wire, 0x18);
 
 unsigned char gain = 0;			   // Gain setting, values = 0-4
 unsigned char integrationTime = 0; // Integration ("shutter") time, values 0 - 4
@@ -114,6 +117,16 @@ void setup()
 	}
 	if (!SD.begin(4)) {
 		Serial.println("Could not find a valid SD, check wiring!");
+		while (1)
+			;
+	}
+	if (!accel.begin()) {
+		Serial.println("Could not find a valid BMI, check wiring!");
+		while (1)
+			;
+	}
+	if (!gyro.begin()) {
+		Serial.println("Could not find a valid BMI, check wiring!");
 		while (1)
 			;
 	}
@@ -327,16 +340,23 @@ void loop()
 						if (header.indexOf("GET /bme") >= 0) {
 							bme.performReading();
 							float iaq = calculate_iaq(bme.gas_resistance, bme.humidity);
-							client.printf(
-								"{\"temperature\":%f,\"pressure\":%f,\"humidity\":%f,\"gas\":%f,\"altitude\":%f,\"iaq\":%f}",
-								bme.temperature, bme.pressure / 100.0, bme.humidity, bme.gas_resistance / 1000.0,
-								bme.readAltitude(SEALEVELPRESSURE_HPA), iaq);
+							client.printf("{\"temperature\":%f,\"pressure\":%f,\"humidity\":%f,\"gas\":%f,\"altitude\":"
+										  "%f,\"iaq\":%f}",
+										  bme.temperature, bme.pressure / 100.0, bme.humidity,
+										  bme.gas_resistance / 1000.0, bme.readAltitude(SEALEVELPRESSURE_HPA), iaq);
 						} else if (header.indexOf("GET /ltr") >= 0) {
 							unsigned long int rawData;
 							double lux;
 							light.getData(rawData);
 							light.getLux(gain, integrationTime, rawData, lux);
 							client.printf("{\"lux\":%f}", lux);
+						} else if (header.indexOf("GET /bmi") >= 0) {
+							accel.readSensor();
+							gyro.readSensor();
+							client.printf(
+								"{\"accel\":{\"x\":%f,\"y\":%f,\"z\":%f},\"gyro\":{\"x\":%f,\"y\":%f,\"z\":%f}}",
+								accel.getAccelX_mss(), accel.getAccelY_mss(), accel.getAccelZ_mss(),
+								gyro.getGyroX_rads(), gyro.getGyroY_rads(), gyro.getGyroZ_rads());
 						}
 						break;
 					} else {
