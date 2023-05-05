@@ -96,7 +96,7 @@ void printError(byte error)
 void setup()
 {
 	Serial.begin(9600);
-	delay(1000);
+	delay(3000);
 	pixel.begin();
 	pixel.setBrightness(3);
 	pixel.fill(0xFF00FF);
@@ -130,6 +130,7 @@ void setup()
 		while (1)
 			;
 	}
+
 	File file = SD.open("/hello.txt", FILE_WRITE);
 
 	if (file) {
@@ -185,8 +186,6 @@ void setup()
 		printError(error);
 	}
 
-	// Allow for a slight delay in power-up sequence (typ. 5ms from the datasheet)
-	delay(10);
 
 	if (light.getPower(control)) {
 		Serial.print("Control byte is: 0X");
