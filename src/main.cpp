@@ -6,7 +6,7 @@
 #include <LTR308.h>
 #include <SD.h>
 #include <SPI.h>
-#include <Wifi.h>
+#include <WiFi.h>
 #include <Wire.h>
 
 #define SEALEVELPRESSURE_HPA (1013.25)
@@ -95,14 +95,14 @@ void printError(byte error)
 
 void setup()
 {
+	delay(4000);
 	Serial.begin(9600);
-	delay(3000);
 	pixel.begin();
 	pixel.setBrightness(3);
 	pixel.fill(0xFF00FF);
 	pixel.show();
-	while (!Serial)
-		;
+	// while (!Serial)
+	// 	;
 	Serial.println(F("Sparrow test"));
 
 	if (!bme.begin(0x76)) {
@@ -232,15 +232,18 @@ void setup()
 
 	Serial.print("Connecting to ");
 	Serial.println(ssid);
-	WiFi.begin(ssid, password);
-	while (WiFi.status() != WL_CONNECTED) {
-		delay(500);
-		Serial.print(".");
-	}
+	// WiFi.begin(ssid, password);
+	// Serial.printf("%d", WiFi.status());
+	// while (WiFi.status() != WL_CONNECTED) {
+	// 	delay(500);
+	// 	Serial.print(".");
+	// }
+	WiFi.softAP(ssid, password);
 	Serial.println("");
 	Serial.println("WiFi connected.");
 	Serial.println("IP address: ");
-	Serial.println(WiFi.localIP());
+	// Serial.println(WiFi.localIP());
+	Serial.println(WiFi.softAPIP());
 	server.begin();
 }
 
